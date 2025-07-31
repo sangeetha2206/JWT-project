@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>JWT Authentication System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .card {
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+        .card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+        }
+        .auth-bg {
+            background-image: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+    </style>
+</head>
+<body class="min-h-screen bg-gray-100">
+    <div id="app" class="min-h-screen flex flex-col">
+        <!-- Navigation -->
+        <nav class="bg-white shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <img src="https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/4bf1c902-46fd-4005-b206-270cd66a0e10.png" alt="JWT Authentication System Logo" class="h-8 w-8 rounded-full">
+                        </div>
+                    </div>
+                    <div class="hidden sm:ml-6 sm:flex sm:items-center space-x-4" id="nav-links">
+                        <!-- Dynamically populated based on auth state -->
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- Main Content Area -->
+        <main class="flex-grow">
+            <div id="content" class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+                <!-- Routes will be rendered here -->
+            </div>
+        </main>
+
+        <!-- Footer -->
+        <footer class="bg-gray-800 text-white py-4">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+                <p>JWT Authentication System © 2023</p>
+            </div>
+        </footer>
+    </div>
+
+    <script>
+        // Mock API endpoints
+        const API = {
+            register: '/api/auth/register',
+            login: '/api/auth/login',
+            products: '/api/auth/products'
+        };
+
+        // Mock database (simulating backend storage)
+        let users = []; // Stores registered users
+        let products = [
+            { id: 1, name: 'Premium Laptop', price: 1299, description: 'High-performance laptop with 16GB RAM and 1TB SSD', image: 'https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/c921d2ed-e408-408d-9c85-0f90a577423c.png' },
+            { id: 2, name: 'Wireless Headphones', price: 199, description: 'Noise-cancelling wireless headphones with 30hr battery', image: 'https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/f07b9349-ab92-4389-b4df-04f9a503387d.png' }, 
+            { id: 3, name: 'Smart Watch', price: 249, description: 'Fitness tracker with heart rate monitor and GPS', image: 'https://storage.googleapis.com/workspace-0f70711f-8b4e-4d94-86f1-2a93ccde5887/image/716fc2a9-86fc-4c97-88f8-1c2e1ccf2ab8.png' }
+        ];
+
+        // State management
+        let state = {
+            currentUser: null,
+            currentRoute: window.location.hash || '#login'
+        };
+
+        // DOM Elements
+        const contentEl = document.getElementById('content');
+        const navLinksEl = document.getElementById('nav-links');
+
+        // Router
+        function router() {
+            const route = state.currentRoute.substring(1);
+            
+            // Check authentication for protected routes
+            if (route === 'home') {
+                const token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    state.currentRoute = '#login';
+                    renderLogin();
+                    updateNav();
+                    return;
+                }
+            }
+
+            switch(route) {
+                case 'login':
+                    renderLogin();
+                    break;
+                case 'register':
+                    renderRegister();
+                    break;
+                case 'home':
+                    renderHome();
+                    break;
+                default:
+                    renderLogin();
+            }
+            
+            updateNav();
+        }
+
+        // Update navigation based on auth state
+        function updateNav() {
+            const token = localStorage.getItem('jwt_token');
+            navLinksEl.innerHTML = token ? `
+                <a href="#home" class="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-100">Home</a>
+                <button onclick="logout()" class="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-100">Logout</button>
+            ` : `
+                <a href="#login" class="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-100">Login</a>
+                <a href="#register" class="px-3 py-2 rounded-md text-sm font-medium text-gray-900 hover:bg-gray-100">Register</a>
+            `;
+        }
+
+        // Render Login Page
+        function renderLogin() {
+            contentEl.innerHTML = `
+                <div class="auth-bg py-12 px-4 sm:px-6 lg:px-8">
+                    <div class="max-w-md mx-auto bg-white rounded-lg shadow-xl overflow-hidden">
+                        <div class="px-6 py-8">
+                            <div class="text-center mb-8">
+                                <h2 class="text-3xl font-extrabold text-gray-900">Sign in to your account</h2>
+                            </div>
+                            <form id="loginForm" class="space-y-6">
+                                <div>
+                                    <label for="login-email" class="block text-sm font-medium text-gray-700">Username</label>
+                                    <input id="login-username" name="username" type="text" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label for="login-password" class="block text-sm font-medium text-gray-700">Password</label>
+                                    <input id="login-password" name="password" type="password" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <button type="submit"
+                                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Sign in
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="mt-4 text-center">
+                                <a href="#register" class="text-sm text-blue-600 hover:text-blue-500">Don't have an account? Register</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('loginForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('login-username').value;
+                const password = document.getElementById('login-password').value;
+                
+                try {
+                    const res = await mockLogin(username, password);
+                    if (res.token) {
+                        localStorage.setItem('jwt_token', res.token);
+                        state.currentUser = { username };
+                        state.currentRoute = '#home';
+                        router();
+                    }
+                } catch (error) {
+                    alert('Login failed: ' + error.message);
+                }
+            });
+        }
+
+        // Render Register Page
+        function renderRegister() {
+            contentEl.innerHTML = `
+                <div class="auth-bg py-12 px-4 sm:px-6 lg:px-8">
+                    <div class="max-w-md mx-auto bg-white rounded-lg shadow-xl overflow-hidden">
+                        <div class="px-6 py-8">
+                            <div class="text-center mb-8">
+                                <h2 class="text-3xl font-extrabold text-gray-900">Create a new account</h2>
+                            </div>
+                            <form id="registerForm" class="space-y-6">
+                                <div>
+                                    <label for="register-username" class="block text-sm font-medium text-gray-700">Username</label>
+                                    <input id="register-username" name="username" type="text" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <label for="register-password" class="block text-sm font-medium text-gray-700">Password</label>
+                                    <input id="register-password" name="password" type="password" required
+                                        class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-blue-500 focus:border-blue-500">
+                                </div>
+                                <div>
+                                    <button type="submit"
+                                        class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                                        Register
+                                    </button>
+                                </div>
+                            </form>
+                            <div class="mt-4 text-center">
+                                <a href="#login" class="text-sm text-blue-600 hover:text-blue-500">Already have an account? Login</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('registerForm').addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const username = document.getElementById('register-username').value;
+                const password = document.getElementById('register-password').value;
+                
+                try {
+                    await mockRegister(username, password);
+                    alert('Registration successful! Please login.');
+                    state.currentRoute = '#login';
+                    router();
+                } catch (error) {
+                    alert('Registration failed: ' + error.message);
+                }
+            });
+        }
+
+        // Render Home Page
+        function renderHome() {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                state.currentRoute = '#login';
+                router();
+                return;
+            }
+
+            getProducts().then(fetchedProducts => {
+                contentEl.innerHTML = `
+                    <div class="px-4 py-6 sm:px-0">
+                        <div class="flex justify-between items-center mb-8">
+                            <h1 class="text-3xl font-bold text-gray-900">Welcome, ${state.currentUser?.username || 'User'}!</h1>
+                        </div>
+                        
+                        <div class="bg-white shadow-sm rounded-lg overflow-hidden">
+                            <div class="px-6 py-4 border-b border-gray-200">
+                                <h3 class="text-lg font-medium text-gray-900">Product Catalog</h3>
+                            </div>
+                            <div class="bg-gray-50 px-6 py-4 grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                                ${fetchedProducts.map(product => `
+                                    <div class="card bg-white rounded-lg shadow overflow-hidden">
+                                        <img src="${product.image}" alt="${product.name}" class="w-full h-48 object-cover">
+                                        <div class="p-6">
+                                            <div class="flex justify-between items-start">
+                                                <div>
+                                                    <h4 class="text-lg font-semibold text-gray-800">${product.name}</h4>
+                                                    <p class="text-gray-600 mt-1">${product.description}</p>
+                                                </div>
+                                                <span class="bg-blue-100 text-blue-800 text-xs font-semibold px-2.5 py-0.5 rounded">${product.price}</span>
+                                            </div>
+                                            <div class="mt-4 flex justify-end">
+                                                <button class="text-sm text-blue-600 hover:text-blue-800 font-medium">View Details</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).catch(error => {
+                contentEl.innerHTML = `
+                    <div class="rounded-md bg-red-50 p-4">
+                        <div class="flex">
+                            <div class="ml-3">
+                                <h3 class="text-sm font-medium text-red-800">Error</h3>
+                                <div class="mt-2 text-sm text-red-700">
+                                    <p>Failed to load products: ${error.message}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        // Mock API functions
+        async function mockRegister(username, password) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const userExists = users.some(u => u.username === username);
+                    if (userExists) {
+                        reject(new Error('Username already taken'));
+                    } else {
+                        users.push({ username, password });
+                        resolve({ success: true });
+                    }
+                }, 500);
+            });
+        }
+
+        async function mockLogin(username, password) {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const user = users.find(u => u.username === username && u.password === password);
+                    if (user) {
+                        // Simulate JWT token generation
+                        const token = `mock-jwt-token-${Math.random().toString(36).substr(2, 9)}`;
+                        resolve({ token, user: { username } });
+                    } else {
+                        reject(new Error('Invalid credentials'));
+                    }
+                }, 500);
+            });
+        }
+
+        async function getProducts() {
+            return new Promise((resolve, reject) => {
+                setTimeout(() => {
+                    const token = localStorage.getItem('jwt_token');
+                    if (!token) {
+                        reject(new Error('Not authenticated'));
+                    } else {
+                        resolve(products);
+                    }
+                }, 800);
+            });
+        }
+
+        // Logout function
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            state.currentUser = null;
+            state.currentRoute = '#login';
+            router();
+        }
+
+        // Event listeners
+        window.addEventListener('hashchange', () => {
+            state.currentRoute = window.location.hash;
+            router();
+        });
+
+        // Initialize the app
+        document.addEventListener('DOMContentLoaded', () => {
+            router();
+            
+            // Check for existing token on load
+            const token = localStorage.getItem('jwt_token');
+            if (token) {
+                state.currentUser = { username: 'ExistingUser' };
+                if (state.currentRoute === '#login' || state.currentRoute === '#register') {
+                    state.currentRoute = '#home';
+                }
+                router();
+            }
+        });
+    </script>
+</body>
+</html>
